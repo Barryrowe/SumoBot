@@ -15,12 +15,18 @@ int forward = HIGH;
 int backward = LOW;
 int maxSpeed = 255;
 int currentMotorSpeed = 0;
+int lastKnownDistance = 1024;
+int currentDirection = backward;
 
 PololuQTRSensorsRC qtr((unsigned char[]) {
   19,18}
 , 2, 2000, 255); //declares two line sensors on pins 18 and 19 this corresponds to analog pins 4 and 5
 unsigned int sensors[2];
 const int linethreshold = 300; 
+const int tooCloseThreshold = 200;
+const int tooFarThreshold = 500;
+
+const int somethingAheadThreshold = 300;
 
 void setup() { // put your setup code here, to run once:
   //motor control outputs
@@ -34,7 +40,7 @@ void setup() { // put your setup code here, to run once:
   pinMode(irSensorPin, INPUT);
   Serial.begin(9600); // set up Serial library at 9600 bps for debugging
   delay (3000); //wait for everything and for the match to start  
-  blink(ledPin, 3, 100);
+  //blink(ledPin, 3, 100);
   // blink the LED 3 times. This should happen only once. 
   // if you see the LED blink three times, it means that 
   // the module reset itself,. probably because the motor 
@@ -44,6 +50,29 @@ void setup() { // put your setup code here, to run once:
 void loop(){
     Serial.println("StartLoop!");
     
+    lastKnownDistance = readDistance(10);
+    Serial.print("LastKnownDistance:");
+    Serial.println(lastKnownDistance);
+    
+    if(lastKnownDistance < somethingAheadThreshold){
+      if(currentDirection != forward){
+        //Serial.println("Nothing Ahead!! Moving Forward!!");
+        //moveForward(maxSpeed);
+        scanForEnemy();
+      }
+    }else if(lastKnownDistance > somethingAheadThreshold){
+      if(currentDirection != backward){
+        //Serial.println("Too Close!! Run Away!");
+        //turnLeft(maxSpeed/2);
+        //delay(oneSecond/4);
+        //moveBackward(maxSpeed);
+        
+        Serial.println("EnemyFound!! Full Steam Ahead!!");
+        moveForward(maxSpeed);
+      }
+    }
+    
+    /*
     //Test Move Forward
     moveForward(maxSpeed);
     delay(5*oneSecond);
@@ -51,10 +80,10 @@ void loop(){
     delay(oneSecond/2);
     
     //Test Turn Left
-    turnLeft(maxSpeed/2);
-    delay(2*oneSecond);
+    turnLeft(maxSpeed);
+    delay(oneSecond);
     stopMotors();
-
+    delay(oneSecond);
     //Test Move Backward
     moveBackward(maxSpeed);
     delay(5*oneSecond);
@@ -62,10 +91,18 @@ void loop(){
     delay(oneSecond/2);
 
     //Test Turn Right
-    turnRight(maxSpeed/2);
-    delay(3*oneSecond);
+    turnRight(maxSpeed);
+    delay(oneSecond);
     stopMotors();
-    Serial.println("End Loop!");
+    Serial.println("End Loop!");*/
+}
+
+void scanForEnemy(){  
+  lastKnownDistance = readDistance(10);
+  while(lastKnownDistance < somethingAheadThreshold){  
+    turnRight(maxSpeed/2);
+    lastKnownDistance = readDistance(10);
+  }  
 }
 
 //ROBOT MOVEMENT API
@@ -73,19 +110,23 @@ void loop(){
 void moveForward(int targetSpeed){
     setMotorSpeed(targetSpeed);
     move(forward, forward);
+    currentDirection = forward;
 }
 
 void moveBackward(int targetSpeed){
     setMotorSpeed(targetSpeed);  
     move(backward, backward);
+    currentDirection = backward;
 }
 
 void turnLeft(int targetSpeed){
-   setMotorSPeed(targetSpeed);
+   Serial.println("Turning Left");
+   setMotorSpeed(targetSpeed);
    move(backward, forward); 
 }
 
 void turnRight(int targetSpeed){
+   Serial.println("Turning Right");
    setMotorSpeed(targetSpeed);
    move(forward, backward); 
 }
@@ -93,6 +134,23 @@ void turnRight(int targetSpeed){
 void stopMotors(){
    setMotorSpeed(0);
    Serial.println("Stopped Motors!");
+}
+
+//SENSOR 'API'
+int readDistance(int sampleSize){
+  if(sampleSize == NULL){
+    sampleSize = 10;
+  }
+  float total = 0;
+  for(int i=0;i<sampleSize;i++){
+    int reading = analogRead(irSensorPin);
+    total += reading;
+    Serial.print("Reading: ");
+    Serial.println(reading);
+    Serial.print("Total: ");
+    Serial.println(total);
+  }
+  return total/sampleSize;  
 }
 
 //UTILITY FUNCTIONS TO BE CALLED ONLY BY OUR MOVEMENT API
@@ -111,14 +169,15 @@ void setMotorSpeed(int targetSpeed){
   }
 }
 
-void move(int leftWheelDirection, int rightWheelDirection){
-  digitalWrite(leftWheelDirection, leftWheelDirection);
-  digitalWrite(rightWheelDirection, rightWheelDirection); 
+void move(int leftDirection, int rightDirection){
+  digitalWrite(leftWheelDirection, leftDirection);
+  digitalWrite(rightWheelDirection, rightDirection); 
   Serial.print("Moving with Left Wheel: ");
-  Serial.print(leftWheelDirection);
+  Serial.print(leftDirection);
   Serial.print(" and Right Wheel: ");
-  Serial.println(rightWheelDirection);
+  Serial.println(rightDirection);
 }
+/*
 //This function blinks an LED
 void blink(int whatPin, int howManyTimes, int milliSecs) {
   int i = 0;
@@ -129,4 +188,4 @@ void blink(int whatPin, int howManyTimes, int milliSecs) {
     delay(milliSecs/2);
     Serial.println("I blinked!");
   }
-}// end blink
+}// end blink*/
