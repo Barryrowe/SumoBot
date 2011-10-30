@@ -26,6 +26,8 @@ const int linethreshold = 300;
 const int tooCloseThreshold = 200;
 const int tooFarThreshold = 500;
 
+//    closer --------------------------------farther
+//          45   100  200  300  400  500  650
 const int somethingAheadThreshold = 300;
 
 void setup() { // put your setup code here, to run once:
@@ -51,25 +53,29 @@ void loop(){
     Serial.println("StartLoop!");
     
     lastKnownDistance = readDistance(10);
-    Serial.print("LastKnownDistance:");
-    Serial.println(lastKnownDistance);
+    //Serial.print("LastKnownDistance:");
+    //Serial.println(lastKnownDistance);
     
     if(lastKnownDistance < somethingAheadThreshold){
-      if(currentDirection != forward){
+      //if(currentDirection != forward){
         //Serial.println("Nothing Ahead!! Moving Forward!!");
         //moveForward(maxSpeed);
+        Serial.print("LastKnownDistance:");
+        Serial.println(lastKnownDistance);
+        moveBackward(maxSpeed);
+        delay(oneSecond/8);
+        stopMotors();
         scanForEnemy();
-      }
+      //}
     }else if(lastKnownDistance > somethingAheadThreshold){
-      if(currentDirection != backward){
+      //if(currentDirection != backward){
         //Serial.println("Too Close!! Run Away!");
         //turnLeft(maxSpeed/2);
         //delay(oneSecond/4);
         //moveBackward(maxSpeed);
         
-        Serial.println("EnemyFound!! Full Steam Ahead!!");
-        moveForward(maxSpeed);
-      }
+        attack();        
+      //}
     }
     
     /*
@@ -101,10 +107,20 @@ void scanForEnemy(){
   lastKnownDistance = readDistance(10);
   while(lastKnownDistance < somethingAheadThreshold){  
     turnRight(maxSpeed/2);
+    stopMotors();
+    delay(oneSecond/2);
     lastKnownDistance = readDistance(10);
   }  
 }
 
+void attack(){
+  Serial.print("Attacking - LastKnownDistance:");
+  Serial.println(lastKnownDistance);        
+  if(currentDirection != forward){
+    Serial.println("EnemyFound!! Full Steam Ahead!!");
+    moveForward(maxSpeed/2);
+  }  
+}
 //ROBOT MOVEMENT API
 //CALL THROUGH THESE FUNCTIONS
 void moveForward(int targetSpeed){
@@ -123,16 +139,19 @@ void turnLeft(int targetSpeed){
    Serial.println("Turning Left");
    setMotorSpeed(targetSpeed);
    move(backward, forward); 
+   currentDirection = NULL;
 }
 
 void turnRight(int targetSpeed){
    Serial.println("Turning Right");
    setMotorSpeed(targetSpeed);
-   move(forward, backward); 
+   move(forward, backward);
+   currentDirection = NULL; 
 }
 
 void stopMotors(){
    setMotorSpeed(0);
+   currentDirection = NULL;
    Serial.println("Stopped Motors!");
 }
 
@@ -145,10 +164,10 @@ int readDistance(int sampleSize){
   for(int i=0;i<sampleSize;i++){
     int reading = analogRead(irSensorPin);
     total += reading;
-    Serial.print("Reading: ");
-    Serial.println(reading);
-    Serial.print("Total: ");
-    Serial.println(total);
+    //Serial.print("Reading: ");
+    //Serial.println(reading);
+    //Serial.print("Total: ");
+    //Serial.println(total);
   }
   return total/sampleSize;  
 }
