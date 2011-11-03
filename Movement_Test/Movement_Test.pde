@@ -8,8 +8,10 @@
 
 #define ledPin  13
 #define irSensorPin 3
-#define lefttLineSensor 18     //Corresponds to analog pin 4
-#define rightLineSensor 19     //corresponds to analog pin 5
+#define rightLineSensorAPin 4
+#define leftLineSensorAPin 5
+#define leftLineSensorPin 18     //Corresponds to analog pin 4
+#define rightLineSensorPin 19     //corresponds to analog pin 5
 
 int forward = HIGH;
 int backward = LOW;
@@ -17,18 +19,18 @@ int maxSpeed = 255;
 int currentMotorSpeed = 0;
 int lastKnownDistance = 1024;
 int currentDirection = backward;
+boolean leftOutOfBounds = false;
+boolean rightOutOfBounds = false;
 
 PololuQTRSensorsRC qtr((unsigned char[]) {
-  19,18}
+  leftLineSensorPin, rightLineSensorPin}
 , 2, 2000, 255); //declares two line sensors on pins 18 and 19 this corresponds to analog pins 4 and 5
 unsigned int sensors[2];
-const int linethreshold = 300; 
-const int tooCloseThreshold = 200;
-const int tooFarThreshold = 500;
-
-//    closer --------------------------------farther
+const int boundaryThreshold = 300; 
+//IR Sensor Info:
+//    farther--------------------------------closer
 //          45   100  200  300  400  500  650
-const int somethingAheadThreshold = 300;
+const int somethingAheadThreshold = 200;
 
 void setup() { // put your setup code here, to run once:
   //motor control outputs
@@ -40,6 +42,8 @@ void setup() { // put your setup code here, to run once:
   pinMode(ledPin, OUTPUT);
   //pinMode(buzzerPin, OUTPUT);
   pinMode(irSensorPin, INPUT);
+  pinMode(leftLineSensorAPin, INPUT);
+  pinMode(rightLineSensorAPin, INPUT);
   Serial.begin(9600); // set up Serial library at 9600 bps for debugging
   delay (3000); //wait for everything and for the match to start  
   //blink(ledPin, 3, 100);
@@ -53,21 +57,41 @@ void loop(){
     Serial.println("StartLoop!");
     
     lastKnownDistance = readDistance(10);
+    if(currentDirection == forward && lastKnownDistance > somethingAheadThreshold){
+      attack();
+    }else{
+    
+    checkIfOutOfBounds();
+    
+    if(leftOutOfBounds || rightOutOfBounds){
+      //if(leftOutOfBounds && rightOutOfBounds){
+        Serial.println("We're Headed Out of Bounds! Backup and Turn Around!!!");
+        moveBackward(maxSpeed);
+        delay(oneSecond/2);
+        turnLeft(maxSpeed);
+        delay(oneSecond/3);
+      }/*else if(leftOutOfBounds){
+        Serial.println("We're too close to the border on our Left!! Turn Right!");
+        moveBackward(maxSpeed);
+        delay(oneSecond/8);        
+        turnRight(maxSpeed);
+        delay(oneSecond/3);
+        stopMotors();
+      }else if(rightOutOfBounds){
+        Serial.println("We're too close to the border on our Right!! Turn Left!");
+        moveBackward(maxSpeed);
+        delay(oneSecond/8);        
+        turnLeft(maxSpeed);
+        delay(oneSecond/3);
+        stopMotors();
+      }*/
+      
+      //checkIfOutOfBounds();
+    //}
+    
     //Serial.print("LastKnownDistance:");
     //Serial.println(lastKnownDistance);
-    
-    if(lastKnownDistance < somethingAheadThreshold){
-      //if(currentDirection != forward){
-        //Serial.println("Nothing Ahead!! Moving Forward!!");
-        //moveForward(maxSpeed);
-        Serial.print("LastKnownDistance:");
-        Serial.println(lastKnownDistance);
-        moveBackward(maxSpeed);
-        delay(oneSecond/8);
-        stopMotors();
-        scanForEnemy();
-      //}
-    }else if(lastKnownDistance > somethingAheadThreshold){
+    if(lastKnownDistance > somethingAheadThreshold){
       //if(currentDirection != backward){
         //Serial.println("Too Close!! Run Away!");
         //turnLeft(maxSpeed/2);
@@ -76,8 +100,19 @@ void loop(){
         
         attack();        
       //}
+    }else if(lastKnownDistance < somethingAheadThreshold){
+      //if(currentDirection != forward){
+        //Serial.println("Nothing Ahead!! Moving Forward!!");
+        //moveForward(maxSpeed);
+        Serial.print("LastKnownDistance:");
+        Serial.println(lastKnownDistance);
+        moveBackward(maxSpeed);
+        delay(oneSecond/8);
+        stopMotors();
+        scanForEnemy();       
+      //}
     }
-    
+    }
     /*
     //Test Move Forward
     moveForward(maxSpeed);
@@ -103,12 +138,32 @@ void loop(){
     Serial.println("End Loop!");*/
 }
 
+void checkIfOutOfBounds(){
+  sensors[0] = analogRead(leftLineSensorAPin);
+  sensors[1] = analogRead(rightLineSensorAPin);
+  Serial.print("Left Line Sensor Reading: ");
+  Serial.println(sensors[0]);
+  Serial.print("Right Line Sensor Reading: ");
+  Serial.println(sensors[1]);
+  leftOutOfBounds = sensors[0] > boundaryThreshold;
+  rightOutOfBounds = sensors[1] > boundaryThreshold;
+}
+    
 void scanForEnemy(){  
   lastKnownDistance = readDistance(10);
-  while(lastKnownDistance < somethingAheadThreshold){  
-    turnRight(maxSpeed/2);
+  boolean isLeft = false;
+  int scanCounter = 0;
+  while(++scanCounter < 20 && lastKnownDistance < somethingAheadThreshold){  
+    if(scanCounter % 5 == 0){
+      isLeft = !isLeft;
+    }
+    if(isLeft){
+      turnLeft(maxSpeed/2);
+    }else{
+      turnRight(maxSpeed/2);
+    }
     stopMotors();
-    delay(oneSecond/2);
+    delay(oneSecond/8);
     lastKnownDistance = readDistance(10);
   }  
 }
@@ -118,7 +173,7 @@ void attack(){
   Serial.println(lastKnownDistance);        
   if(currentDirection != forward){
     Serial.println("EnemyFound!! Full Steam Ahead!!");
-    moveForward(maxSpeed/2);
+    moveForward(maxSpeed);
   }  
 }
 //ROBOT MOVEMENT API
